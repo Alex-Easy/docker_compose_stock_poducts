@@ -1,0 +1,56 @@
+version: '3.9'
+
+volumes:
+  pgdata:
+  static_volume:
+  media_volume:
+
+services:
+  nginx:
+    build: ./nginx
+    ports:
+      - "8000:80"
+    depends_on:
+      - web
+    volumes:
+      - static_volume:/backend/static
+      - media_volume:/backend/media
+  web:
+    build: ./app
+    command: sh ./commands.sh
+    volumes:
+      - static_volume:/app/static
+      - media_volume:/app/media
+    depends_on:
+      postgredb:
+        condition: service_healthy
+    env_file:
+      - ./.env
+  postgredb:
+    image: postgres:16.0-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d netology_stocks_products"]
+      interval: 1m30s
+      timeout: 30s
+      retries: 5
+      start_period: 50s
+    env_file:
+      - ./.env
+  pg_admin:
+    image: "dpage/pgadmin4:latest"
+    ports:
+      - 6060:80
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "admin1@yandex.ru"
+      PGADMIN_DEFAULT_PASSWORD: "pass_postgres"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
